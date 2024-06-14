@@ -1,13 +1,13 @@
 parameters:
-    env(JSAPI_OUTPUT_DIR_FORM): '%kernel.project_dir%/assets/Data/Form'
-    env(JSAPI_OUTPUT_DIR_ENTITY): '%kernel.project_dir%/assets/Data/Entity'
-    env(JSAPI_OUTPUT_DIR_REPOSITORY): '%kernel.project_dir%/assets/Data/Repository'
+    env(SYNERGY_OUTPUT_DIR_FORM): '%kernel.project_dir%/assets/Data/Form'
+    env(SYNERGY_OUTPUT_DIR_ENTITY): '%kernel.project_dir%/assets/Data/Entity'
+    env(SYNERGY_OUTPUT_DIR_REPOSITORY): '%kernel.project_dir%/assets/Data/Repository'
 
-    Synergy.output_dir.form: '%env(JSAPI_OUTPUT_DIR_FORM)%'
-    Synergy.output_dir.entity: '%env(JSAPI_OUTPUT_DIR_ENTITY)%'
-    Synergy.output_dir.repository: '%env(JSAPI_OUTPUT_DIR_REPOSITORY)%'
+    Synergy.output_dir.form: '%env(SYNERGY_OUTPUT_DIR_FORM)%'
+    Synergy.output_dir.entity: '%env(SYNERGY_OUTPUT_DIR_ENTITY)%'
+    Synergy.output_dir.repository: '%env(SYNERGY_OUTPUT_DIR_REPOSITORY)%'
     Synergy.config:
-        bundleName: Synergy
+        bundleName: '@@efrogg/synergy'
 
 services:
     _defaults:

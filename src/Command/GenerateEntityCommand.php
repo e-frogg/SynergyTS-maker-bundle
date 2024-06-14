@@ -17,7 +17,7 @@ use Symfony\Component\Console\Question\Question;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 #[AsCommand(
-    name: 'Synergy:generate:entity',
+    name: 'Synergy:generate',
     description: 'Generate typescript entity',
 )]
 class GenerateEntityCommand extends Command
@@ -53,7 +53,12 @@ class GenerateEntityCommand extends Command
         /** @var array<string> $nameArgument */
         $nameArgument = $input->getArgument('name');
         if ((bool)$input->getOption('all')) {
-            foreach ($this->entityHelper->getEntityClasses() as $shortName => $fqn) {
+            $entityClasses = $this->entityHelper->getEntityClasses();
+            if (empty($entityClasses)) {
+                $io->error('No entity found. Please be sure to tag all your entities with the #[SynergyEntity] annotation');
+                return self::FAILURE;
+            }
+            foreach ($entityClasses as $shortName => $fqn) {
                 $this->typescriptGenerator->build($fqn);
                 $io->info(sprintf('You have generated the entity "%s"', $shortName));
             }
