@@ -1,0 +1,22 @@
+{
+  "name": "efrogg/synergy-maker-bundle",
+  "version": "0.0.1",
+  "description": "Maker for efrogg/synergy",
+  "config": {
+    "optimize-autoloader": true,
+    "sort-packages": true
+  },
+  "autoload": {
+    "psr-4": {
+      "Efrogg\\SynergyMaker\\": "src/"
+    },
+    "files": []
+  },
+  "require": {
+    "php": ">=8.0.0",
+    "twig/twig": ">2"
+  },
+  "require-dev": {
+    "roave/security-advisories": "dev-latest"
+  }
+}
