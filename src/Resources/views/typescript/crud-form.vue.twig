@@ -1,82 +1,92 @@
 <template>
 {% for relation in relations %}
-    <v-dialog v-model="{{ relation.fieldName }}Modal" width="auto" close-on-back="false" >
-      <{{ relation.editFormFile | toKebabCase }} :{{ relation.fieldNameKebab }}="{{ relation.fieldName }}Modal" @close="{{ relation.fieldName }}Modal=null" @save="on{{ relation.fieldName | capitalize }}Saved"/>
-    </v-dialog>
+  <v-dialog v-model="{{ relation.fieldName }}Modal" width="auto" :close-on-back="false">
+    <{{ relation.editFormFile | toKebabCase }}
+        :{{ relation.fieldNameKebab }}="{{ relation.fieldName }}Modal"
+        :entity-manager="props.entityManager"
+        @close="{{ relation.fieldName }}Modal=null"
+        @save="on{{ relation.fieldName | capitalize }}Saved"
+    />
+  </v-dialog>
 {% endfor %}
 
-    <v-card v-if="{{ entityName }}" :title="modalTitle({{ entityName }})">
-      <v-card-text>
+  <v-card v-if="{{ entityName }}" :title="modalTitle({{ entityName }})">
+    <v-card-text>
 {% for formField in formFields %}
 
 {% if formField.formType == 'datetime-local' %}
-        <!--{{ formField.fieldName }}-->
-        <sp-date-field :date="{{ entityName }}.{{ formField.fieldName }}"
-                      :label="t('{{ formField.translationLabel }}')"{{ formField.required?' required':'' }}{{ formField.disabled?' disabled':'' }}>
-        </sp-date-field>
+      <!--{{ formField.fieldName }}-->
+      <bg-date-field :date="{{ entityName }}.{{ formField.fieldName }}"
+                    :label="t('{{ formField.translationLabel }}')"{{ formField.required?' required':'' }}{{ formField.disabled?' disabled':'' }}>
+      </bg-date-field>
 {% else  %}
-        <!--{{ formField.fieldName }}-->
-        <v-text-field {% if formField.formType %}type="{{ formField.formType }}" {% endif %}v-model.number="{{ entityName }}.{{ formField.fieldName }}"
-                      :label="t('{{ formField.translationLabel }}')"{{ formField.required?' required':'' }}{{ formField.disabled?' disabled':'' }}>
-        </v-text-field>
+      <!--{{ formField.fieldName }}-->
+      <v-text-field {% if formField.formType %}type="{{ formField.formType }}" {% endif %}v-model.number="{{ entityName }}.{{ formField.fieldName }}"
+                    :label="t('{{ formField.translationLabel }}')"{{ formField.required?' required':'' }}{{ formField.disabled?' disabled':'' }}>
+      </v-text-field>
 {% endif %}
 {% endfor %}
 {% for relation in relations %}
 
-        <!--partType-->
-        <v-row justify="end">
-          <v-col cols="8">
-            <v-autocomplete
-                :items="{{ relation.repository }}.getItems()"
-                item-title="name"
-                item-value="id"
-                v-model="{{ entityName }}.{{ relation.fieldName }}Id"
-                :label="t('{{ relation.translationLabel }}')"
-                required
-            ></v-autocomplete>
-          </v-col>
-          <v-col cols="4">
-            <v-btn icon='mdi-plus-thick' @click="{{ relation.fieldName }}Modal=new {{ relation.entityClass }}()" variant="tonal" color="primary"
-                   size="small"></v-btn>
-            <v-btn v-if="{{ entityName }}.{{ relation.fieldName }}" icon='mdi-pencil' @click="{{ relation.fieldName }}Modal={{ entityName }}.{{ relation.fieldName }}" variant="tonal"
-                   color="secondary" size="small"></v-btn>
-          </v-col>
-        </v-row>
+      <!-- {{ relation.fieldName }} -->
+      <v-row justify="end" v-if="{{ relation.repository }}">
+        <v-col cols="8">
+          <v-autocomplete
+              :items="{{ relation.repository }}.getItems()"
+              item-title="name"
+              item-value="id"
+              v-model="{{ entityName }}.{{ relation.fieldName }}Id"
+              :label="t('{{ relation.translationLabel }}')"
+              required
+          ></v-autocomplete>
+        </v-col>
+        <v-col cols="4">
+          <v-btn icon='mdi-plus-thick' @click="{{ relation.fieldName }}Modal=new {{ relation.entityClass }}()" variant="tonal" color="primary"
+                 size="small"></v-btn>
+          <v-btn v-if="{{ entityName }}.{{ relation.fieldName }}" icon='mdi-pencil' @click="edit{{ relation.fieldName | capitalize }}" variant="tonal"
+                 color="secondary" size="small"></v-btn>
+        </v-col>
+      </v-row>
 {% endfor %}
-      </v-card-text>
+    </v-card-text>
 
-      <v-card-actions>
-        <v-container>
-          <v-row justify="end">
-            <v-btn prepend-icon="mdi-close" color="grey" @click="close()">Fermer</v-btn>
-            <v-btn prepend-icon="mdi-check" color="primary" @click="save()">Enregistrer</v-btn>
-          </v-row>
-        </v-container>
-      </v-card-actions>
-    </v-card>
+    <v-card-actions>
+      <v-container>
+        <v-row justify="end">
+          <v-btn prepend-icon="mdi-close" color="grey" @click="close()">Fermer</v-btn>
+          <v-btn prepend-icon="mdi-check" color="primary" @click="save()">Enregistrer</v-btn>
+        </v-row>
+      </v-container>
+    </v-card-actions>
+  </v-card>
 </template>
 <script setup lang="ts">
 import {{ entityClass }} from "../Entity/{{ entityClass }}";
 import {useLocale} from "vuetify";
-import Entity from "Synergy/Data/Entity";
-import SpDateField from "../Form/SpDateField.vue";
-
-{% if relations is not empty %}
-import {Ref, ref} from "vue";
+import Entity from "{{ synergyConfig.bundleName }}/Data/Entity";
+// import SpDateField from "../Form/SpDateField.vue";
+import {onMounted, ref, Ref} from "vue";
+import EntityManager from "{{ synergyConfig.bundleName }}/Data/EntityManager";
+{% if relations|length >0%}
+import Repository from "@efrogg/synergy/Data/Repository";
 {% endif %}
 
-import entityManagerService from "Synergy/Data/EntityManager";
 {% for relation in relations %}
-import {{ relation.entityClass }} from "../../data/entity/{{ relation.entityClass }}";
-import { {{relation.repository}} } from "../../data/RepositoryManager";
+// {{ relation.fieldName }} imports
+import {{ relation.entityClass }} from "../Entity/{{ relation.entityClass }}";
 import {{ relation.editFormFile }} from "./{{ relation.editFormFile }}.vue";
 {% endfor %}
 
 {% for relation in relations %}
-const {{ relation.fieldName }}Modal: Ref<{{ relation.entityClass }} | null> = ref(null)
+const {{ relation.fieldName }}Modal: Ref<{{ relation.entityClass }} | null> = ref(null);
+let {{ relation.repository }}: Repository<{{ relation.entityClass }}> | null = null;
 {% endfor %}
 
 const props = defineProps({
+  entityManager: {
+    type: EntityManager,
+    required: true
+  },
   {{ entityName }}: {
     type: {{ entityClass }},
     required: true
@@ -89,24 +99,35 @@ function close() {
   emit('close')
 }
 
+onMounted(() => {
+{% for relation in relations %}
+  {{ relation.repository }} = props.entityManager.getRepository({{ relation.entityClass }})
+{% endfor %}
+})
+
 function modalTitle(entity: Entity): string {
   let className = entity.constructor.name;
   return entity.getId()
-      ? t('srPit.entities.' + className + '.listing.edit')
-      : t('srPit.entities.' + className + '.listing.add');
+      ? t('{{ synergyConfig.snippetPrefix }}.entities.' + className + '.listing.edit')
+      : t('{{ synergyConfig.snippetPrefix }}.entities.' + className + '.listing.add');
 }
 
 function save() {
-  entityManagerService
+  props.entityManager
       .save(props.{{ entityName }})
       .then(() => {
         emit('save', props.{{ entityName }});
       })
-      .catch((e) => {
+      .catch((e: any) => {
         console.error(e);
       });
 }
+
 {% for relation in relations %}
+function edit{{ relation.fieldName | capitalize }}() {
+  {{relation.fieldName}}Modal.value = {{ relation.repository }}?.get(props.{{ entityName }}.{{ relation.foreignKey }})?.clone() ?? null
+}
+
 function on{{ relation.fieldName | capitalize }}Saved({{ relation.fieldName }}: {{ relation.entityClass }}) {
   props.{{ entityName }}.{{ relation.fieldName }}Id = {{ relation.fieldName }}.getId();
   {{ relation.fieldName }}Modal.value = null;

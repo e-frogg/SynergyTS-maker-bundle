@@ -6,9 +6,12 @@ namespace Efrogg\SynergyMaker\Generator;
 
 use DateTimeInterface;
 use Efrogg\Synergy\Entity\SynergyEntityInterface;
+use Efrogg\Synergy\Mapping\SynergyFormField;
 
 class CrudFormGenerator extends AbstractCodeGenerator
 {
+    const string DEFAULT_SNIPPET_PREFIX = 'synergy';
+    const string DEFAULT_EDIT_FORM_PREFIX = 'Sy';
     protected bool $overwriteFiles = false;
 
     /**
@@ -62,17 +65,31 @@ class CrudFormGenerator extends AbstractCodeGenerator
         $metadata = $this->classMetadataFactory->getMetadataFor($className);
         $formFields = [];
         $relations = [];
+        $reflexionClass = new \ReflectionClass($className);
         foreach ($metadata->getAttributesMetadata() as $attributeMetadata) {
             if ($attributeMetadata->isIgnored()) {
                 continue;
             }
 
             $fieldName = $attributeMetadata->getName();
+            if ($reflexionClass->hasProperty($fieldName)) {
+                $reflectionProperty = $reflexionClass->getProperty($fieldName);
+            } else {
+                $reflectionProperty = null;
+            }
 
             $types = $this->propertyTypeExtractor->getTypes($className, $fieldName);
             foreach ($types ?? [] as $type) {
                 if ($type->isCollection()) {
                     continue;
+                }
+                // check form configuration parameters
+                $formAttributes = $reflectionProperty?->getAttributes(SynergyFormField::class) ?? [];
+                foreach ($formAttributes as $formAttribute) {
+                    $formAttributeInstance = $formAttribute->newInstance();
+                    if ($formAttributeInstance->ignore) {
+                        continue 2;
+                    }
                 }
                 $fieldClassName = $type->getClassName();
                 $type = $type->getBuiltinType();
@@ -82,20 +99,21 @@ class CrudFormGenerator extends AbstractCodeGenerator
                     continue;
                 }
 
-                //TODO : prefix from config
-                $prefix = 'fse';
+
+                $prefix = $this->getSnippetPrefix();
                 $translationLabel = $prefix.".entities.$entityClass.fields.$fieldName";
                 if ($fieldClassName && is_a($fieldClassName, SynergyEntityInterface::class, true)) {
                     $relationEntityName = lcfirst($this->entityHelper->findEntityName($fieldClassName));
                     $shortFieldClassName = $this->entityHelper->findEntityName($fieldClassName);
                     $relations[] = [
-                        'fieldName'        => $fieldName,
+                        'fieldName'        => $fieldName,                                                         // budget
                         'entityName'       => $relationEntityName,
-                        'entityClass'      => ucfirst($relationEntityName),
+                        'entityClass'      => ucfirst($relationEntityName),                                  // Budget
                         'fieldNameKebab' => $this->toKebabCase($shortFieldClassName),
                         'repository'     => lcfirst($shortFieldClassName) . 'Repository',
                         'editFormFile'     => $this->getEditFormFileName($relationEntityName),
-                        'translationLabel' => $translationLabel
+                        'translationLabel' => $translationLabel,
+                        'foreignKey'       => $fieldName . 'Id',                                                  // budgetId
                     ];
                 } else {
                     $formFields[] = [
@@ -124,6 +142,7 @@ class CrudFormGenerator extends AbstractCodeGenerator
             'entityClass' => $entityClass,
             'formFields'  => $formFields,
             'relations'   => $relations,
+            'synergyConfig' => $this->synergyConfig,
         ];
     }
 
@@ -134,7 +153,7 @@ class CrudFormGenerator extends AbstractCodeGenerator
 
     private function getEditFormFileName(?string $shortClassName): string
     {
-        return 'Sp' . ucfirst($shortClassName) . 'EditForm';
+        return $this->getEditFormPrefix() . ucfirst($shortClassName) . 'EditForm';
     }
 
     /**
@@ -159,5 +178,21 @@ class CrudFormGenerator extends AbstractCodeGenerator
             'boolean' => 'checkbox',
             default => null,
         };
+    }
+
+    /**
+     * @return string
+     */
+    private function getEditFormPrefix(): string
+    {
+        return $this->synergyConfig['editFormPrefix'] ?? self::DEFAULT_EDIT_FORM_PREFIX;
+    }
+
+    /**
+     * @return mixed|string
+     */
+    private function getSnippetPrefix(): mixed
+    {
+        return $this->synergyConfig['snippetPrefix'] ?? self::DEFAULT_SNIPPET_PREFIX;
     }
 }

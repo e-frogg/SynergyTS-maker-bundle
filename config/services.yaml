@@ -6,15 +6,11 @@ parameters:
     Synergy.output_dir.form: '%env(SYNERGY_OUTPUT_DIR_FORM)%'
     Synergy.output_dir.entity: '%env(SYNERGY_OUTPUT_DIR_ENTITY)%'
     Synergy.output_dir.repository: '%env(SYNERGY_OUTPUT_DIR_REPOSITORY)%'
-    Synergy.config:
-        bundleName: '@@efrogg/synergy'
 
 services:
     _defaults:
         autowire: true      # Automatically injects dependencies in your services.
         autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
-        bind:
-            $synergyConfig: '%Synergy.config%'
 
     Efrogg\SynergyMaker\:
         resource: '../src/'
