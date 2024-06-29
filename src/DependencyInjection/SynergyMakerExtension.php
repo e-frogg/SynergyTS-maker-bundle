@@ -5,7 +5,6 @@ namespace Efrogg\SynergyMaker\DependencyInjection;
 use Efrogg\SynergyMaker\Generator\CrudFormGenerator;
 use Efrogg\SynergyMaker\Generator\EntityClassGenerator;
 use Efrogg\SynergyMaker\Generator\RepositoryGenerator;
-use Efrogg\SynergyMaker\Generator\TypescriptGenerator;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\Extension;

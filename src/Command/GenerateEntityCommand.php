@@ -31,7 +31,7 @@ class GenerateEntityCommand extends Command
         parent::__construct();
     }
 
-    protected function configure()
+    protected function configure(): void
     {
         $this
             ->setHelp('This command allows you to generate a typescript entity...')

@@ -24,6 +24,9 @@ use Twig\Error\SyntaxError;
 
 class EntityClassGenerator extends AbstractCodeGenerator
 {
+    private const string GETTER_TYPE_NORMAL = 'normal';
+    private const string GETTER_TYPE_RELATION_ID = 'relationId';
+    private const string GETTER_TYPE_RELATION = 'relation';
     /**
      * @var array<string,array<string,string|array<string>>>
      */
@@ -119,11 +122,11 @@ class EntityClassGenerator extends AbstractCodeGenerator
             }
             foreach ($types as $type) {
                 if (is_a($type->getClassName(), SynergyEntityInterface::class, true)) {
-                    $this->addProperty($attributeName . 'Id', 'string');
                     $typeScriptRelation = $this->entityHelper->findEntityName($type->getClassName()) ?? throw new Exception(
                         'no entity found for ' . $type->getClassName()
                     );
-                    $this->addGetter($attributeName, $typeScriptRelation);
+                    $this->addGetter($attributeName . 'Id', 'string',self::GETTER_TYPE_RELATION_ID,['relationName'=>$attributeName]); // TODO : type int | string selon le cas !
+                    $this->addGetter($attributeName, $typeScriptRelation,self::GETTER_TYPE_RELATION);
                 } elseif (EntityNormalizer::isRelationCollection($type)) {
                     $this->logger->warning('skip Collection : ' . $attributeName);
                 } else {
@@ -337,29 +340,52 @@ class EntityClassGenerator extends AbstractCodeGenerator
     /**
      * @throws PatternNotFoundException
      */
-    private function addGetter(string $propertyName, string $type): void
+    private function addGetter(string $propertyName, string $type, string $getterType = self::GETTER_TYPE_NORMAL,array $additionalParameters=[]): void
     {
+        $nullable  = true;
+
         if (in_array($propertyName, $this->existingGetters['get'], true)) {
             $this->logger->debug('getter already exists : ' . $propertyName);
             return;
         }
 
         $privatePropertyName = '_' . $propertyName;
-        $this->addProperty($privatePropertyName, $type, true, 'private');
+        $this->addProperty($privatePropertyName, $type, $nullable, 'private');
 
 //        $repository = lcfirst($type) . 'Repository';
 //        $this->addImport('../RepositoryManager', null, [$repository]);
-        if($type !== $this->generatingClassName) {
+        if($type !== $this->generatingClassName && $type !== 'string' && $type !== 'number' && $type !== 'boolean' && $type !== 'Date' && $type !== 'object') {
             // avoid importing itself (Category > Category
             $this->addImport('./' . $type, $type);
         }
 
-        $getterString =
-            <<<EOT
-    public get {$propertyName}(): {$type} | null {
+        $typeString = $nullable?$type.' | null':$type;
+
+        $getterString = match($getterType) {
+
+            self::GETTER_TYPE_NORMAL => <<<EOT
+    public get {$propertyName}(): {$typeString} {
+        return this.{$privatePropertyName};
+    }
+    public set {$propertyName}(value: {$typeString}) {
+        this.{$privatePropertyName} = value;
+    }
+EOT,
+            self::GETTER_TYPE_RELATION_ID => <<<EOT
+    public get {$propertyName}(): {$typeString} {
+        return this.{$privatePropertyName};
+    }
+    public set {$propertyName}(value: {$typeString}) {
+        this.{$privatePropertyName} = value;
+        this._{$additionalParameters['relationName']} = null;
+    }
+EOT,
+            self::GETTER_TYPE_RELATION => <<<EOT
+    public get {$propertyName}(): {$typeString} {
         return this.{$privatePropertyName} ??= this.getRelation({$type},this.{$propertyName}Id);
-    }    
-EOT;
+    }
+EOT
+        };
 
         // injecting the getter in the file
         // at the end of the class

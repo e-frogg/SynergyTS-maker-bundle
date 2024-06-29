@@ -8,14 +8,14 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 class EntityGenerateListener implements EventSubscriberInterface
 {
 
-    public static function getSubscribedEvents()
+    public static function getSubscribedEvents(): array
     {
         return [
             EntityClassGeneratedEvent::class => 'onEntityClassGenerated',
         ];
     }
 
-    public function onEntityClassGenerated(EntityClassGeneratedEvent $event)
+    public function onEntityClassGenerated(EntityClassGeneratedEvent $event): void
     {
 //        if (is_a($event->getClassName(), ScheduledEventInterface::class, true)) {
 //            $event->setExtends('ScheduledEventEntity');
