@@ -42,7 +42,7 @@ class EntityClassGenerator extends AbstractCodeGenerator
     /**
      * @var string[]
      */
-    protected array $existingAttributes;
+    protected array $existingProperties;
     protected string $baseContent;
     protected string $generatingClassName;
 
@@ -57,7 +57,8 @@ class EntityClassGenerator extends AbstractCodeGenerator
         'updatedBy',
         'entityName',
         'scheduledAt',
-        'executedAt'
+        'executedAt',
+        '_entityName',
     ];
 
     /**
@@ -89,7 +90,7 @@ class EntityClassGenerator extends AbstractCodeGenerator
 
         $metadata = $this->classMetadataFactory->getMetadataFor($className);
         // read existing
-        $this->readExistingAttributes();
+        $this->readExistingProperties();
         $this->readExistingGetters();
         $this->readExistingImports();
         $this->readExtends();
@@ -110,7 +111,7 @@ class EntityClassGenerator extends AbstractCodeGenerator
                 continue;
             }
             $attributeName = $attributesMetadatum->getName();
-            if (in_array($attributeName, $this->existingAttributes, true)) {
+            if (in_array($attributeName, $this->existingProperties, true)) {
                 $this->logger->info('exists : ' . $attributeName);
                 continue;
             }
@@ -125,15 +126,16 @@ class EntityClassGenerator extends AbstractCodeGenerator
                     $typeScriptRelation = $this->entityHelper->findEntityName($type->getClassName()) ?? throw new Exception(
                         'no entity found for ' . $type->getClassName()
                     );
-                    $this->addGetter($attributeName . 'Id', 'string',self::GETTER_TYPE_RELATION_ID,['relationName'=>$attributeName]); // TODO : type int | string selon le cas !
-                    $this->addGetter($attributeName, $typeScriptRelation,self::GETTER_TYPE_RELATION);
+                    // find the relation id type
+                    $this->addPropertyWithGetterSetter($attributeName . 'Id', 'string',self::GETTER_TYPE_RELATION_ID,true,['relationName' =>$attributeName]); // TODO : type int | string selon le cas !
+                    $this->addPropertyWithGetterSetter($attributeName, $typeScriptRelation,self::GETTER_TYPE_RELATION);
                 } elseif (EntityNormalizer::isRelationCollection($type)) {
                     $this->logger->warning('skip Collection : ' . $attributeName);
                 } else {
                     try {
                         $this->addProperty($attributeName, $this->convertType($type->getBuiltinType(), $type->getClassName()), $type->isNullable());
                     } catch (Exception $e) {
-                        dump($e);
+//                        dump($e);
                         $this->logger->warning($attributeName.' : '.$e->getMessage());
                     }
                 }
@@ -157,17 +159,17 @@ class EntityClassGenerator extends AbstractCodeGenerator
         ]);
     }
 
-    private function readExistingAttributes(): void
+    private function readExistingProperties(): void
     {
-        $attributePattern = '#(public|protected|private)\s+(?<name>\w+)(\s*:\s*(?<type>[a-zA-Z_\[\]|-]+))?([,; ][^()]*)?$#Um';
-        preg_match_all($attributePattern, $this->baseContent, $matches);
-        $this->existingAttributes = $matches['name'];
+        $propertyPattern = '#(public|protected|private)\s+(?<name>\w+)(\s*:\s*(?<type>[a-zA-Z_\[\]|-]+))?([,; ][^()]*)?$#Um';
+        preg_match_all($propertyPattern, $this->baseContent, $matches);
+        $this->existingProperties = $matches['name'];
     }
 
     private function readExistingGetters(): void
     {
-        $attributePattern = '#^(?<start>.*)(get|set)\s+(?<name>\w+)\s*\(.*$#Um';
-        preg_match_all($attributePattern, $this->baseContent, $matches);
+        $getterSetterPattern = '#^(?<start>.*)(get|set)\s+(?<name>\w+)\s*\(.*$#Um';
+        preg_match_all($getterSetterPattern, $this->baseContent, $matches);
         $this->existingGetters = ['get' => [], 'set' => []];
         foreach ($matches[2] as $k => $getOrSet) {
             $isCommented = (bool)preg_match('#^\s*//.*$#Um', $matches['start'][$k]);
@@ -298,7 +300,7 @@ class EntityClassGenerator extends AbstractCodeGenerator
 
     private function addProperty(string $propertyName, string $type, bool $nullable = false, string $visibility = 'public'): void
     {
-        if(in_array($propertyName, $this->existingGetters['get'], true)) {
+        if($this->getterExists($propertyName)) {
             $this->logger->info('property '.$propertyName.' already exists as getter');
             return;
         }
@@ -340,11 +342,9 @@ class EntityClassGenerator extends AbstractCodeGenerator
     /**
      * @throws PatternNotFoundException
      */
-    private function addGetter(string $propertyName, string $type, string $getterType = self::GETTER_TYPE_NORMAL,array $additionalParameters=[]): void
+    private function addPropertyWithGetterSetter(string $propertyName, string $type, string $getterType = self::GETTER_TYPE_NORMAL,bool $nullable  = true, array $additionalParameters=[]): void
     {
-        $nullable  = true;
-
-        if (in_array($propertyName, $this->existingGetters['get'], true)) {
+        if ($this->getterExists($propertyName)) {
             $this->logger->debug('getter already exists : ' . $propertyName);
             return;
         }
@@ -361,42 +361,92 @@ class EntityClassGenerator extends AbstractCodeGenerator
 
         $typeString = $nullable?$type.' | null':$type;
 
-        $getterString = match($getterType) {
-
-            self::GETTER_TYPE_NORMAL => <<<EOT
-    public get {$propertyName}(): {$typeString} {
-        return this.{$privatePropertyName};
-    }
-    public set {$propertyName}(value: {$typeString}) {
-        this.{$privatePropertyName} = value;
-    }
-EOT,
-            self::GETTER_TYPE_RELATION_ID => <<<EOT
-    public get {$propertyName}(): {$typeString} {
-        return this.{$privatePropertyName};
-    }
-    public set {$propertyName}(value: {$typeString}) {
-        this.{$privatePropertyName} = value;
-        this._{$additionalParameters['relationName']} = null;
-    }
-EOT,
-            self::GETTER_TYPE_RELATION => <<<EOT
+        switch($getterType) {
+            case self::GETTER_TYPE_NORMAL:
+                $this->addGetter($propertyName, $typeString);
+                $this->addSetter($propertyName, $typeString);
+                break;
+            case self::GETTER_TYPE_RELATION_ID:
+                $this->addGetter($propertyName, $typeString);
+                $this->addSetter($propertyName, $typeString,[    // set the relation _budgetId
+                    '_'.$additionalParameters['relationName'] => 'null'                             // reset the relation _budget = null
+                ]);
+                break;
+            case self::GETTER_TYPE_RELATION:
+                $this->addMethod(
+                    <<<EOT
     public get {$propertyName}(): {$typeString} {
         return this.{$privatePropertyName} ??= this.getRelation({$type},this.{$propertyName}Id);
     }
 EOT
-        };
-
-        // injecting the getter in the file
-        // at the end of the class
-        if (!preg_match('#^(.*---methods---.*)$#Um', $this->baseContent . "\n$1",)) {
-            throw new PatternNotFoundException('pattern ---methods--- introuvable');
+                );
+                break;
         }
-        $this->baseContent = preg_replace(
-            '#^(.*---methods---.*)$#Um',
-            $getterString . "\n$1",
-            $this->baseContent
-        ) ?? $this->baseContent;
+//        $getterString = match($getterType) {
+//
+//            self::GETTER_TYPE_NORMAL => <<<EOT
+//    public get {$propertyName}(): {$typeString} {
+//        return this.{$privatePropertyName};
+//    }
+//    public set {$propertyName}(value: {$typeString}) {
+//        this.{$privatePropertyName} = value;
+//    }
+//EOT,
+//            self::GETTER_TYPE_RELATION_ID => <<<EOT
+////    public get {$propertyName}(): {$typeString} {
+////        return this.{$privatePropertyName};
+////    }
+//    public set {$propertyName}(value: {$typeString}) {
+//        this.{$privatePropertyName} = value;
+//        this._{$additionalParameters['relationName']} = null;
+//    }
+//EOT,
+//            self::GETTER_TYPE_RELATION => <<<EOT
+//    public get {$propertyName}(): {$typeString} {
+//        return this.{$privatePropertyName} ??= this.getRelation({$type},this.{$propertyName}Id);
+//    }
+//EOT
+//        };
+//        $this->addMethod($getterString);
+    }
+
+    /**
+     * @throws PatternNotFoundException
+     */
+    private function addGetter(string $propertyName, string $typeString): void
+    {
+        if($this->getterExists($propertyName)) {
+            $this->logger->info('getter already exists : ' . $propertyName);
+            return;
+        }
+
+        $privatePropertyName = '_' . $propertyName;
+        $this->addMethod(<<<EOT
+    public get {$propertyName}(): {$typeString} {
+        return this.{$privatePropertyName};
+    }
+EOT);
+    }
+
+    /**
+     * @param array<string,string> $additionalSets
+     *
+     * @throws PatternNotFoundException
+     */
+    private function addSetter(string $propertyName, string $typeString, array $additionalSets=[]): void
+    {
+        $privatePropertyName = '_' . $propertyName;
+        $additionalSetStrings = [];
+        foreach ($additionalSets as $key => $value) {
+            $additionalSetStrings[] = "        this.{$key} = {$value};";
+        }
+        $additionalSetString = implode("\n", $additionalSetStrings);
+        $this->addMethod(<<<EOT
+    public set {$propertyName}(value: {$typeString}) {
+        this.{$privatePropertyName} = value;
+$additionalSetString
+    }
+EOT);
     }
 
     private function convertType(string $builtinType, ?string $className): string
@@ -418,7 +468,7 @@ EOT
                 return 'Date';
             }
 
-            return 'object';
+//            return 'object';
         }
         throw new Exception('could not convert ' . $className);
     }
@@ -443,5 +493,35 @@ EOT
         //        'startDate': 'date',
         //        'endDate': 'date'
         //    }
+    }
+
+    /**
+     * @param string $getterString
+     *
+     * @return void
+     * @throws PatternNotFoundException
+     */
+    private function addMethod(string $getterString): void
+    {
+// injecting the getter in the file
+        // at the end of the class
+        if (!preg_match('#^(.*---methods---.*)$#Um', $this->baseContent . "\n$1",)) {
+            throw new PatternNotFoundException('pattern ---methods--- introuvable');
+        }
+        $this->baseContent = preg_replace(
+            '#^(.*---methods---.*)$#Um',
+            $getterString . "\n$1",
+            $this->baseContent
+        ) ?? $this->baseContent;
+    }
+
+    /**
+     * @param string $propertyName
+     *
+     * @return bool
+     */
+    private function getterExists(string $propertyName): bool
+    {
+        return in_array($propertyName, $this->existingGetters['get'], true);
     }
 }
