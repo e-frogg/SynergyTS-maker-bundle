@@ -161,7 +161,8 @@ class EntityClassGenerator extends AbstractCodeGenerator
 
     private function readExistingProperties(): void
     {
-        $propertyPattern = '#(public|protected|private)\s+(?<name>\w+)(\s*:\s*(?<type>[a-zA-Z_\[\]|-]+))?([,; ][^()]*)?$#Um';
+//        $propertyPattern = '#(public|protected|private)\s+(?<name>\w+)(\s*:\s*(?<type>[a-zA-Z_\[\]|-{?:}]+))?([,; ][^()]*)?$#Um';
+        $propertyPattern = '#(public|protected|private)\s+(?<name>\w+)\s*:\s*([^;]*)[,; ]$#Um';
         preg_match_all($propertyPattern, $this->baseContent, $matches);
         $this->existingProperties = $matches['name'];
     }
@@ -300,6 +301,10 @@ class EntityClassGenerator extends AbstractCodeGenerator
 
     private function addProperty(string $propertyName, string $type, bool $nullable = false, string $visibility = 'public'): void
     {
+        if($this->propertyExists($propertyName)) {
+            $this->logger->info('property '.$propertyName.' already exists');
+            return;
+        }
         if($this->getterExists($propertyName)) {
             $this->logger->info('property '.$propertyName.' already exists as getter');
             return;
@@ -523,5 +528,9 @@ EOT);
     private function getterExists(string $propertyName): bool
     {
         return in_array($propertyName, $this->existingGetters['get'], true);
+    }
+    private function propertyExists(string $propertyName): bool
+    {
+        return in_array($propertyName, $this->existingProperties, true);
     }
 }
