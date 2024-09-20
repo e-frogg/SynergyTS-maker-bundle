@@ -14,14 +14,21 @@
     <v-card-text>
 {% for formField in formFields %}
 
-{% if formField.formType == 'datetime-local' %}
       <!--{{ formField.fieldName }}-->
+{% if formField.formType == 'datetime-local' %}
       <bg-date-field :date="{{ entityName }}.{{ formField.fieldName }}"
                     :label="t('{{ formField.translationLabel }}')"{{ formField.required?' required':'' }}{{ formField.disabled?' disabled':'' }}>
       </bg-date-field>
+{% elseif  formField.formType == 'checkbox' %}
+      <v-checkbox v-model="{{ entityName }}.{{ formField.fieldName }}"
+                    :label="t('{{ formField.translationLabel }}')"{{ formField.required?' required':'' }}{{ formField.disabled?' disabled':'' }}>
+      </v-checkbox>
+{% elseif  formField.formType == 'number' %}
+      <v-text-field {% if formField.formType %}type="number" {% endif %}  v-model.number="{{ entityName }}.{{ formField.fieldName }}"
+                    :label="t('{{ formField.translationLabel }}')"{{ formField.required?' required':'' }}{{ formField.disabled?' disabled':'' }}>
+      </v-text-field>
 {% else  %}
-      <!--{{ formField.fieldName }}-->
-      <v-text-field {% if formField.formType %}type="{{ formField.formType }}" {% endif %}v-model.number="{{ entityName }}.{{ formField.fieldName }}"
+      <v-text-field {% if formField.formType %}type="{{ formField.formType }}" {% endif %} v-model="{{ entityName }}.{{ formField.fieldName }}"
                     :label="t('{{ formField.translationLabel }}')"{{ formField.required?' required':'' }}{{ formField.disabled?' disabled':'' }}>
       </v-text-field>
 {% endif %}

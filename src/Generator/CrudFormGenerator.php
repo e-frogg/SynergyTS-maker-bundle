@@ -166,7 +166,7 @@ class CrudFormGenerator extends AbstractCodeGenerator
      */
     private function getVuetifyFieldTypeFromPhpType(string $type, ?string $class): ?string
     {
-        echo "type: $type, class: $class\n";
+//        echo "type: $type, class: $class\n";
         if($class !== null) {
             if(is_a($class, DateTimeInterface::class, true)) {
                 return 'datetime-local';
@@ -175,7 +175,7 @@ class CrudFormGenerator extends AbstractCodeGenerator
         return match($type) {
             'int' => 'number',
             'date', 'datetime' => 'date',
-            'boolean' => 'checkbox',
+            'bool' => 'checkbox',
             default => null,
         };
     }
