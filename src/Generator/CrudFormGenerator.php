@@ -7,6 +7,7 @@ namespace Efrogg\SynergyMaker\Generator;
 use DateTimeInterface;
 use Efrogg\Synergy\Entity\SynergyEntityInterface;
 use Efrogg\Synergy\Mapping\SynergyFormField;
+use RuntimeException;
 
 class CrudFormGenerator extends AbstractCodeGenerator
 {
@@ -37,7 +38,8 @@ class CrudFormGenerator extends AbstractCodeGenerator
     public function generate(string $className): void
     {
         $this->checkDirectory();
-        $shortClassName = $this->entityHelper->findEntityName($className);
+        $shortClassName = $this->entityHelper->findEntityName($className)
+            ?? throw new RuntimeException('failed to find entity name');
         $fileName = $this->outputDir . '/' . $this->getEditFormFileName($shortClassName) . '.vue';
         if (file_exists($fileName)) {
             $this->logger->warning('File already exists: ' . $fileName);
@@ -53,13 +55,14 @@ class CrudFormGenerator extends AbstractCodeGenerator
     }
 
     /**
-     * @param string $className
+     * @param class-string $className
      *
      * @return array<string,mixed>
      */
     private function generateDataForTemplate(string $className): array
     {
-        $entityClass = $this->entityHelper->findEntityName($className);
+        $entityClass = $this->entityHelper->findEntityName($className)
+            ?? throw new RuntimeException('failed to find entity name for ' . $className);
         $entityName = lcfirst($entityClass);
 
         $metadata = $this->classMetadataFactory->getMetadataFor($className);
@@ -103,8 +106,10 @@ class CrudFormGenerator extends AbstractCodeGenerator
                 $prefix = $this->getSnippetPrefix();
                 $translationLabel = $prefix.".entities.$entityClass.fields.$fieldName";
                 if ($fieldClassName && is_a($fieldClassName, SynergyEntityInterface::class, true)) {
-                    $relationEntityName = lcfirst($this->entityHelper->findEntityName($fieldClassName));
-                    $shortFieldClassName = $this->entityHelper->findEntityName($fieldClassName);
+                    $fieldEntityNam = $this->entityHelper->findEntityName($fieldClassName)
+                        ?? throw new RuntimeException('failed to find entity name');
+                    $relationEntityName = lcfirst($fieldEntityNam);
+                    $shortFieldClassName = $fieldEntityNam;
                     $relations[] = [
                         'fieldName'        => $fieldName,                                                         // budget
                         'entityName'       => $relationEntityName,
@@ -148,10 +153,13 @@ class CrudFormGenerator extends AbstractCodeGenerator
 
     private function toKebabCase(string $fieldName): string
     {
-        return strtolower(preg_replace('/(?<!^)[A-Z]/', '-$0', $fieldName));
+        return strtolower(
+            preg_replace('/(?<!^)[A-Z]/', '-$0', $fieldName)
+            ?? throw new RuntimeException('failed to convert to kebab case')
+        );
     }
 
-    private function getEditFormFileName(?string $shortClassName): string
+    private function getEditFormFileName(string $shortClassName): string
     {
         return $this->getEditFormPrefix() . ucfirst($shortClassName) . 'EditForm';
     }
