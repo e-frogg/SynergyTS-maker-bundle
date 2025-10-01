@@ -7,7 +7,6 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 class EntityGenerateListener implements EventSubscriberInterface
 {
-
     public static function getSubscribedEvents(): array
     {
         return [
@@ -17,13 +16,13 @@ class EntityGenerateListener implements EventSubscriberInterface
 
     public function onEntityClassGenerated(EntityClassGeneratedEvent $event): void
     {
-//        if (is_a($event->getClassName(), ScheduledEventInterface::class, true)) {
-//            $event->setExtends('ScheduledEventEntity');
-//            $event->addImport('./Common/ScheduledEventEntity', null,['ScheduledEventEntity']);
-//        }
-//        if (is_a($event->getClassName(), SimulationAwareInterface::class, true)) {
-//            $event->addImplements('SimulationEntityInterface');
-//            $event->addImport('./Common/SimulationEntity', null, ['SimulationEntityInterface']);
-//        }
+        //        if (is_a($event->getClassName(), ScheduledEventInterface::class, true)) {
+        //            $event->setExtends('ScheduledEventEntity');
+        //            $event->addImport('./Common/ScheduledEventEntity', null,['ScheduledEventEntity']);
+        //        }
+        //        if (is_a($event->getClassName(), SimulationAwareInterface::class, true)) {
+        //            $event->addImplements('SimulationEntityInterface');
+        //            $event->addImport('./Common/SimulationEntity', null, ['SimulationEntityInterface']);
+        //        }
     }
 }

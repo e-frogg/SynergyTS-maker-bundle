@@ -6,5 +6,4 @@ namespace Efrogg\SynergyMaker\Exception;
 
 class PatternNotFoundException extends \Exception
 {
-
 }

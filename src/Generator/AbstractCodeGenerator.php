@@ -32,11 +32,10 @@ abstract class AbstractCodeGenerator
 
     abstract public function generate(string $className): void;
 
-
     public function checkDirectory(): void
     {
         if (!is_dir($this->outputDir)) {
-            if (!mkdir($concurrentDirectory = $this->outputDir, 0777, true) && !is_dir($concurrentDirectory)) {
+            if (!mkdir($concurrentDirectory = $this->outputDir, 0o777, true) && !is_dir($concurrentDirectory)) {
                 throw new \RuntimeException(sprintf('Directory "%s" was not created', $concurrentDirectory));
             }
         }

@@ -9,7 +9,6 @@ use Twig\TwigFilter;
 
 class TwigTools extends AbstractExtension
 {
-
     public function getFilters(): array
     {
         return [
