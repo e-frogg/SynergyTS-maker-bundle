@@ -72,7 +72,12 @@ class GenerateEntityCommand extends Command
             }
         } else {
             foreach ($nameArgument as $entityName) {
-                $this->typescriptGenerator->build($this->entityHelper->findEntityClass($entityName));
+                $className = $this->entityHelper->findEntityClass($entityName);
+                if (null === $className) {
+                    $io->error(sprintf('Entity "%s" not found', $entityName));
+                    continue;
+                }
+                $this->typescriptGenerator->build($className);
                 $io->success(sprintf('You have generated the entity "%s"', $entityName));
             }
         }
@@ -87,11 +92,11 @@ class GenerateEntityCommand extends Command
         }
 
         $full = (bool) $input->getOption('full');
-        $doForm = $input->getOption('form');
-        $doEntity = $input->getOption('entity');
+        $doForm = (bool) ($input->getOption('form') ?? $full);
+        $doEntity = (bool) ($input->getOption('entity') ?? $full);
         $this->typescriptGenerator->activateGenerators(
-            entity: ($doEntity ?? true) ?: ($doEntity ?? $full),   // true par défaut
-            crudForm: $doForm ?? $full,                             // false par défaut
+            entity: $doEntity,
+            crudForm: $doForm,                             // false par défaut
         );
     }
 }
