@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Efrogg\SynergyMaker\Generator;
 
 use Efrogg\Synergy\Entity\SynergyEntityInterface;
-use Efrogg\Synergy\Serializer\Normalizer\EntityNormalizer;
 use Efrogg\SynergyMaker\Event\EntityClassGeneratedEvent;
 use Efrogg\SynergyMaker\Exception\PatternNotFoundException;
 use Symfony\Component\PropertyInfo\Type;
+use Symfony\Component\TypeInfo\Type\BuiltinType;
+use Symfony\Component\TypeInfo\Type\CollectionType;
+use Symfony\Component\TypeInfo\Type\ObjectType;
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
 use Twig\Error\SyntaxError;
@@ -56,6 +58,10 @@ class EntityClassGenerator extends AbstractCodeGenerator
     ];
 
     /**
+     * @template T of object
+     *
+     * @param class-string<T> $className Either a string containing the name of
+     *
      * @throws SyntaxError
      * @throws \ReflectionException
      * @throws RuntimeError
@@ -109,26 +115,31 @@ class EntityClassGenerator extends AbstractCodeGenerator
                 continue;
             }
 
-            $types = $this->propertyTypeExtractor->getTypes($className, $attributeName);
-            if (null === $types) {
+            if (null === $className) {
+                $this->logger->error('no class for : '.$attributeName);
+                continue;
+            }
+            $type = $this->propertyTypeExtractor->getType($className, $attributeName);
+            if (null === $type) {
                 $this->logger->error('no type for : '.$attributeName);
                 continue;
             }
-            foreach ($types as $type) {
-                if (is_a($type->getClassName(), SynergyEntityInterface::class, true)) {
-                    $typeScriptRelation = $this->entityHelper->findEntityName($type->getClassName()) ?? throw new \Exception('no entity found for '.$type->getClassName());
-                    // find the relation id type
-                    $this->addPropertyWithGetterSetter($attributeName.'Id', 'string', self::GETTER_TYPE_RELATION_ID, true, ['relationName' => $attributeName]); // TODO : type int | string selon le cas !
-                    $this->addPropertyWithGetterSetter($attributeName, $typeScriptRelation, self::GETTER_TYPE_RELATION);
-                } elseif (EntityNormalizer::isRelationCollection($type)) {
-                    $this->logger->warning('skip Collection : '.$attributeName);
-                } else {
-                    try {
-                        $this->addProperty($attributeName, $this->convertType($type->getBuiltinType(), $type->getClassName()), $type->isNullable());
-                    } catch (\Exception $e) {
-                        //                        dump($e);
-                        $this->logger->warning($attributeName.' : '.$e->getMessage());
-                    }
+
+            if ($type instanceof ObjectType && is_a($type->getClassName(), SynergyEntityInterface::class, true)) {
+                $typeScriptRelation = $this->entityHelper->findEntityName($type->getClassName()) ?? throw new \Exception('no entity found for '.$type->getClassName());
+                // find the relation id type
+                $this->addPropertyWithGetterSetter($attributeName.'Id', 'string', self::GETTER_TYPE_RELATION_ID, true, ['relationName' => $attributeName]); // TODO : type int | string selon le cas !
+                $this->addPropertyWithGetterSetter($attributeName, $typeScriptRelation, self::GETTER_TYPE_RELATION);
+            } elseif ($type instanceof CollectionType) {
+                $this->logger->warning('skip Collection : '.$attributeName);
+            } elseif ($type instanceof BuiltinType) {
+                try {
+                    $typeClassName = $type instanceof ObjectType ? $type->getClassName() : null;
+                    $builtInType = $type instanceof BuiltinType ? (string) $type : 'object';
+                    $this->addProperty($attributeName, $this->convertType($builtInType, $typeClassName), $type->isNullable());
+                } catch (\Exception $e) {
+                    //                        dump($e);
+                    $this->logger->warning($attributeName.' : '.$e->getMessage());
                 }
             }
         }
@@ -478,7 +489,7 @@ class EntityClassGenerator extends AbstractCodeGenerator
             'Date' => 'new Date()',
             'array' => '[]',
             'object' => '{}',
-            default => throw new \Exception('no default value for type '.$type)
+            default => throw new \Exception('no default value for type '.$type),
         };
     }
 

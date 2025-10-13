@@ -6,6 +6,8 @@ namespace Efrogg\SynergyMaker\Generator;
 
 use Efrogg\Synergy\Entity\SynergyEntityInterface;
 use Efrogg\Synergy\Mapping\SynergyFormField;
+use Symfony\Component\TypeInfo\Type\CollectionType;
+use Symfony\Component\TypeInfo\Type\ObjectType;
 
 class CrudFormGenerator extends AbstractCodeGenerator
 {
@@ -76,57 +78,56 @@ class CrudFormGenerator extends AbstractCodeGenerator
                 $reflectionProperty = null;
             }
 
-            $types = $this->propertyTypeExtractor->getTypes($className, $fieldName);
-            foreach ($types ?? [] as $type) {
-                if ($type->isCollection()) {
-                    continue;
+            $type = $this->propertyTypeExtractor->getType($className, $fieldName);
+            if (null === $type || $type instanceof CollectionType) {
+                continue;
+            }
+            // check form configuration parameters
+            $formAttributes = $reflectionProperty?->getAttributes(SynergyFormField::class) ?? [];
+            foreach ($formAttributes as $formAttribute) {
+                $formAttributeInstance = $formAttribute->newInstance();
+                if ($formAttributeInstance->ignore) {
+                    continue 2;
                 }
-                // check form configuration parameters
-                $formAttributes = $reflectionProperty?->getAttributes(SynergyFormField::class) ?? [];
-                foreach ($formAttributes as $formAttribute) {
-                    $formAttributeInstance = $formAttribute->newInstance();
-                    if ($formAttributeInstance->ignore) {
-                        continue 2;
-                    }
-                }
-                $fieldClassName = $type->getClassName();
-                $type = $type->getBuiltinType();
+            }
 
-                $predefinedAttributes = $this->predefinedAttributes[$fieldName] ?? [];
-                if ((bool) ($predefinedAttributes['ignore'] ?? false)) {
-                    continue;
-                }
+            $predefinedAttributes = $this->predefinedAttributes[$fieldName] ?? [];
+            if ((bool) ($predefinedAttributes['ignore'] ?? false)) {
+                continue;
+            }
 
-                $prefix = $this->getSnippetPrefix();
-                $translationLabel = $prefix.".entities.$entityClass.fields.$fieldName";
-                if ($fieldClassName && is_a($fieldClassName, SynergyEntityInterface::class, true)) {
-                    $fieldEntityNam = $this->entityHelper->findEntityName($fieldClassName)
-                        ?? throw new \RuntimeException('failed to find entity name');
-                    $relationEntityName = lcfirst($fieldEntityNam);
-                    $shortFieldClassName = $fieldEntityNam;
-                    $relations[] = [
-                        'fieldName' => $fieldName,                                                         // budget
-                        'entityName' => $relationEntityName,
-                        'entityClass' => ucfirst($relationEntityName),                                  // Budget
-                        'fieldNameKebab' => $this->toKebabCase($shortFieldClassName),
-                        'repository' => lcfirst($shortFieldClassName).'Repository',
-                        'editFormFile' => $this->getEditFormFileName($relationEntityName),
-                        'translationLabel' => $translationLabel,
-                        'foreignKey' => $fieldName.'Id',                                                  // budgetId
-                    ];
-                } else {
-                    $formFields[] = [
-                        'ignore' => false,
-                        'disabled' => false,
-                        'required' => true,
-                        ...$predefinedAttributes,
-                        'fieldName' => $fieldName,
-                        'type' => $type,
-                        'fieldClassName' => $fieldClassName,
-                        'translationLabel' => $translationLabel,
-                        'formType' => $this->getVuetifyFieldTypeFromPhpType($type, $fieldClassName),
-                    ];
-                }
+            $prefix = $this->getSnippetPrefix();
+            $translationLabel = $prefix.".entities.$entityClass.fields.$fieldName";
+            // type object
+            $fieldClassName = ($type instanceof ObjectType) ? $type->getClassName() : null;
+            if ($fieldClassName && is_a($fieldClassName, SynergyEntityInterface::class, true)) {
+                $fieldEntityNam = $this->entityHelper->findEntityName($fieldClassName)
+                    ?? throw new \RuntimeException('failed to find entity name');
+                $relationEntityName = lcfirst($fieldEntityNam);
+                $shortFieldClassName = $fieldEntityNam;
+                $relations[] = [
+                    'fieldName' => $fieldName,                                                         // budget
+                    'entityName' => $relationEntityName,
+                    'entityClass' => ucfirst($relationEntityName),                                  // Budget
+                    'fieldNameKebab' => $this->toKebabCase($shortFieldClassName),
+                    'repository' => lcfirst($shortFieldClassName).'Repository',
+                    'editFormFile' => $this->getEditFormFileName($relationEntityName),
+                    'translationLabel' => $translationLabel,
+                    'foreignKey' => $fieldName.'Id',                                                  // budgetId
+                ];
+            } else {
+                $typeForPHP = (string) $type;
+                $formFields[] = [
+                    'ignore' => false,
+                    'disabled' => false,
+                    'required' => true,
+                    ...$predefinedAttributes,
+                    'fieldName' => $fieldName,
+                    'type' => $type,
+                    'fieldClassName' => $fieldClassName,
+                    'translationLabel' => $translationLabel,
+                    'formType' => $this->getVuetifyFieldTypeFromPhpType($typeForPHP, $fieldClassName),
+                ];
             }
         }
 
