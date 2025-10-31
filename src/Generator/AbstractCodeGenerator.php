@@ -30,6 +30,9 @@ abstract class AbstractCodeGenerator
     ) {
     }
 
+    /**
+     * @param class-string $className
+     */
     abstract public function generate(string $className): void;
 
     public function checkDirectory(): void

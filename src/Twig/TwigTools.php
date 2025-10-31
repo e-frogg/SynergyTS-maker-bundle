@@ -19,6 +19,6 @@ class TwigTools extends AbstractExtension
 
     public function toKebabCase(string $string): string
     {
-        return strtolower(preg_replace('/(?<!^)[A-Z]/', '-$0', $string));
+        return strtolower(preg_replace('/(?<!^)[A-Z]/', '-$0', $string) ?? '');
     }
 }

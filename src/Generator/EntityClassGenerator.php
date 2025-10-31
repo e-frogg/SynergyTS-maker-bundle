@@ -7,7 +7,6 @@ namespace Efrogg\SynergyMaker\Generator;
 use Efrogg\Synergy\Entity\SynergyEntityInterface;
 use Efrogg\SynergyMaker\Event\EntityClassGeneratedEvent;
 use Efrogg\SynergyMaker\Exception\PatternNotFoundException;
-use Symfony\Component\PropertyInfo\Type;
 use Symfony\Component\TypeInfo\Type\BuiltinType;
 use Symfony\Component\TypeInfo\Type\CollectionType;
 use Symfony\Component\TypeInfo\Type\ObjectType;
@@ -24,11 +23,14 @@ class EntityClassGenerator extends AbstractCodeGenerator
     private const string GETTER_TYPE_RELATION_ID = 'relationId';
     private const string GETTER_TYPE_RELATION = 'relation';
     /**
-     * @var array<string,array<string,string|array<string>>>
+     * @var array<string,array{
+     *     implements?: array<string>,
+     *     extends: string|null
+     *     }>
      */
     protected array $existingExtends;
     /**
-     * @var array<string>
+     * @var array<string,mixed>
      */
     protected array $existingImports;
     /**
@@ -115,10 +117,6 @@ class EntityClassGenerator extends AbstractCodeGenerator
                 continue;
             }
 
-            if (null === $className) {
-                $this->logger->error('no class for : '.$attributeName);
-                continue;
-            }
             $type = $this->propertyTypeExtractor->getType($className, $attributeName);
             if (null === $type) {
                 $this->logger->error('no type for : '.$attributeName);
@@ -132,7 +130,7 @@ class EntityClassGenerator extends AbstractCodeGenerator
                 $this->addPropertyWithGetterSetter($attributeName, $typeScriptRelation, self::GETTER_TYPE_RELATION);
             } elseif ($type instanceof CollectionType) {
                 $this->logger->warning('skip Collection : '.$attributeName);
-            } elseif ($type instanceof BuiltinType) {
+            } else {
                 try {
                     $typeClassName = $type instanceof ObjectType ? $type->getClassName() : null;
                     $builtInType = $type instanceof BuiltinType ? (string) $type : 'object';
@@ -257,9 +255,11 @@ class EntityClassGenerator extends AbstractCodeGenerator
     }
 
     /**
-     * @param array<string>|null $implements
+     * @param array<string> $implements
+     *
+     * @throws \Exception
      */
-    private function needExtends(string $className, ?string $extends = null, ?array $implements = []): void
+    private function needExtends(string $className, ?string $extends = null, array $implements = []): void
     {
         $allowOverwrite = [
             'Entity' => ['ScheduledEventEntity', 'SimulationEntity', 'TimeEventEntity'],
@@ -293,7 +293,7 @@ class EntityClassGenerator extends AbstractCodeGenerator
             '#export(.*)class\s+'.$className.'\s+.*{#Usm',
             $string,
             $this->baseContent
-        );
+        ) ?? throw new \Exception('could not update extends/implements for '.$className);
     }
 
     private function addProperty(string $propertyName, string $type, bool $nullable = false, string $visibility = 'public'): void
@@ -345,6 +345,8 @@ class EntityClassGenerator extends AbstractCodeGenerator
     }
 
     /**
+     * @param array<string,string> $additionalParameters
+     *
      * @throws PatternNotFoundException
      */
     private function addPropertyWithGetterSetter(string $propertyName, string $type, string $getterType = self::GETTER_TYPE_NORMAL, bool $nullable = true, array $additionalParameters = []): void
