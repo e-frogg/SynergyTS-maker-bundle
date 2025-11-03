@@ -30,6 +30,7 @@ class CrudFormGenerator extends AbstractCodeGenerator
         'createdBy' => ['ignore' => true],
         'updatedBy' => ['ignore' => true],
         'entityName' => ['ignore' => true],
+        '_entityName' => ['ignore' => true],
     ];
 
     public function setOverwriteFiles(bool $overwriteFiles): void
@@ -114,6 +115,7 @@ class CrudFormGenerator extends AbstractCodeGenerator
                 $reflectionProperty = null;
             }
 
+            dump($fieldName);
             $type = $this->propertyTypeExtractor->getType($className, $fieldName);
             if (null === $type || $type instanceof CollectionType) {
                 continue;
