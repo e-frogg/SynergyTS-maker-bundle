@@ -1,9 +1,11 @@
 parameters:
     env(SYNERGY_OUTPUT_DIR_FORM): '%kernel.project_dir%/assets/Data/Form'
+    env(SYNERGY_OUTPUT_DIR_FORM_PRIME): '%kernel.project_dir%/assets/Data/FormPrime'
     env(SYNERGY_OUTPUT_DIR_ENTITY): '%kernel.project_dir%/assets/Data/Entity'
     env(SYNERGY_OUTPUT_DIR_REPOSITORY): '%kernel.project_dir%/assets/Data/Repository'
 
     synergy.output_dir.form: '%env(SYNERGY_OUTPUT_DIR_FORM)%'
+    synergy.output_dir.form_prime: '%env(SYNERGY_OUTPUT_DIR_FORM_PRIME)%'
     synergy.output_dir.entity: '%env(SYNERGY_OUTPUT_DIR_ENTITY)%'
     synergy.output_dir.repository: '%env(SYNERGY_OUTPUT_DIR_REPOSITORY)%'
 
@@ -18,6 +20,8 @@ services:
     Efrogg\SynergyMaker\Generator\CrudFormGenerator:
         arguments:
             $outputDir: '%synergy.output_dir.form%'
+        calls:
+            - [ setPrimeOutputDir, [ '%synergy.output_dir.form_prime%' ] ]
 
     Efrogg\SynergyMaker\Generator\EntityClassGenerator:
         arguments:

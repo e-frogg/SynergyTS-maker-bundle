@@ -40,6 +40,7 @@ class GenerateEntityCommand extends Command
             ->addOption('entity', null, InputOption::VALUE_NONE | InputOption::VALUE_NEGATABLE, 'Generate entity typescript (default false)')
             ->addOption('form', null, InputOption::VALUE_NONE | InputOption::VALUE_NEGATABLE, 'Generate entity vue form (default false)')
             ->addOption('overwrite-crud', null, InputOption::VALUE_NONE, 'writes over existing CRUD vue files')
+            ->addOption('ui', null, InputOption::VALUE_REQUIRED, 'UI framework to use for generated forms (vuetify|primevue)', 'vuetify')
         ;
     }
 
@@ -90,6 +91,15 @@ class GenerateEntityCommand extends Command
         if ((bool) $input->getOption('overwrite-crud')) {
             $this->crudFormGenerator->setOverwriteFiles(true);
         }
+
+        // UI framework selection for CRUD form generation
+        /** @var string|null $uiOpt */
+        $uiOpt = $input->getOption('ui');
+        $ui = is_string($uiOpt) ? strtolower($uiOpt) : 'vuetify';
+        if (!in_array($ui, ['vuetify', 'primevue'], true)) {
+            throw new \InvalidArgumentException(sprintf('Invalid --ui option "%s". Allowed values: vuetify, primevue', $uiOpt));
+        }
+        $this->crudFormGenerator->setUiFramework($ui);
 
         $full = (bool) $input->getOption('full');
         $doForm = (bool) ($input->getOption('form') ?? $full);

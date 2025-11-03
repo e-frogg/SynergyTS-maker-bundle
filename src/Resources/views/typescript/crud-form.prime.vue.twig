@@ -1,0 +1,134 @@
+<template>
+  <Card v-if="{{ entityName }}" class="w-[700px]">
+    <template #title>{{ '{{' }} modalTitle({{ entityName }}) {{ '}}' }}</template>
+    <template #content>
+      <div class="flex flex-col gap-4">
+{% for formField in formFields %}
+
+        <!-- {{ formField.fieldName }} -->
+{% if formField.formType == 'datetime-local' %}
+        <div>
+          <label class="block text-sm mb-1">{{ '{{' }} t('{{ synergyConfig.snippetPrefix }}.entities.{{ entityClass }}.fields.{{ formField.fieldName }}') {{ '}}' }}</label>
+          <InputText type="datetime-local" v-model="{{ entityName }}.{{ formField.fieldName }}" class="w-full" />
+        </div>
+{% elseif formField.formType == 'checkbox' %}
+        <div class="flex items-center gap-2">
+          <label class="text-sm">{{ '{{' }} t('{{ synergyConfig.snippetPrefix }}.entities.{{ entityClass }}.fields.{{ formField.fieldName }}') {{ '}}' }}</label>
+          <ToggleSwitch v-model="{{ entityName }}.{{ formField.fieldName }}" />
+        </div>
+{% elseif formField.formType == 'number' %}
+        <div>
+          <label class="block text-sm mb-1">{{ '{{' }} t('{{ synergyConfig.snippetPrefix }}.entities.{{ entityClass }}.fields.{{ formField.fieldName }}') {{ '}}' }}</label>
+          <InputNumber v-model="{{ entityName }}.{{ formField.fieldName }}" inputClass="w-full" class="w-full" />
+        </div>
+{% else %}
+        <div>
+          <label class="block text-sm mb-1">{{ '{{' }} t('{{ synergyConfig.snippetPrefix }}.entities.{{ entityClass }}.fields.{{ formField.fieldName }}') {{ '}}' }}</label>
+          <InputText v-model="{{ entityName }}.{{ formField.fieldName }}" class="w-full" />
+        </div>
+{% endif %}
+{% endfor %}
+
+{% for relation in relations %}
+
+        <!-- {{ relation.fieldName }} relation -->
+        <div v-if="{{ relation.repository }}" class="grid grid-cols-12 items-end gap-2">
+          <div class="col-span-9">
+            <label class="block text-sm mb-1">{{ '{{' }} t('{{ relation.translationLabel }}') {{ '}}' }}</label>
+            <Select
+              v-model="{{ entityName }}.{{ relation.fieldName }}Id"
+              optionLabel="name"
+              optionValue="id"
+              :options="{{ relation.repository }}.getItems()"
+              class="w-full"
+              :placeholder="t('select.placeholder') ?? 'Select'"
+            />
+          </div>
+          <div class="col-span-3 flex gap-2">
+            <Button icon="pi pi-plus" severity="primary" text @click="create{{ relation.fieldName | capitalize }}" />
+            <Button v-if="{{ entityName }}.{{ relation.fieldName }}" icon="pi pi-pencil" severity="secondary" text @click="edit{{ relation.fieldName | capitalize }}" />
+          </div>
+        </div>
+{% endfor %}
+      </div>
+    </template>
+    <template #footer>
+      <div class="flex justify-end gap-2">
+        <Button icon="pi pi-times" label="Fermer" severity="secondary" @click="close" />
+        <Button icon="pi pi-check" label="Enregistrer" @click="save" />
+      </div>
+    </template>
+  </Card>
+
+</template>
+
+<script setup lang="ts">
+import { onMounted, ref } from "vue";
+import { useI18n } from 'vue-i18n';
+import { Button, Card, Dialog, InputNumber, InputText, Select, ToggleSwitch, } from 'primevue';
+import {{ entityClass }} from "../Entity/{{ entityClass }}";
+import Entity from "{{ synergyConfig.bundleName }}/Data/Entity";
+import EntityManager from "{{ synergyConfig.bundleName }}/Data/EntityManager";
+
+{% if relations|length >0%}
+import Repository from "@efrogg/synergy/Data/Repository";
+{% endif %}
+
+{% for relation in relations %}
+// {{ relation.fieldName }} imports
+import {{ relation.entityClass }} from "../Entity/{{ relation.entityClass }}";
+import {{ relation.editFormFile }} from "./{{ relation.editFormFile }}.vue";
+{% endfor %}
+
+import {useEditStore} from "@/stores/editEntityStore";
+import Criteria from "@efrogg/synergy/Data/Criteria/Criteria";
+
+const editStore = useEditStore()
+const { t } = useI18n();
+
+{% for relation in relations %}
+let {{ relation.repository }} = ref<Repository<{{ relation.entityClass }}>|null>(null);
+{% endfor %}
+
+const props : { entityManager: EntityManager; {{ entityName }}: {{ entityClass }} }  = defineProps({
+  entityManager: {type: EntityManager, required: true},
+  {{ entityName }}: {type: {{ entityClass }}, required: true}
+})
+const emit = defineEmits(['close', 'save']);
+
+function close() {emit('close');}
+
+onMounted(() => {
+{% for relation in relations %}
+  {{ relation.repository }}.value = props.entityManager.getRepository({{ relation.entityClass }});
+{% endfor %}
+})
+
+function modalTitle(entity: Entity): string {
+  const className = entity.constructor.name;
+  return entity.getId()
+      ? t('{{ synergyConfig.snippetPrefix }}.entities.' + className + '.listing.edit')
+      : t('{{ synergyConfig.snippetPrefix }}.entities.' + className + '.listing.add');
+}
+
+function save() {
+  props.entityManager
+      .save(props.{{ entityName }})
+      .then(() => emit('save', props.{{ entityName }}))
+      .catch((e: any) => console.error(e));
+}
+
+{% for relation in relations %}
+function edit{{ relation.fieldName | capitalize }}() {
+    editStore.push({{ relation.repository }}.value?.get(props.{{ entityName }}.{{ relation.foreignKey }})?.clone() ?? null);
+}
+function create{{ relation.fieldName | capitalize }}() {
+    editStore.push(new {{ entityClass }}());
+}
+function on{{ relation.fieldName | capitalize }}Saved({{ relation.fieldName }}: {{ relation.entityClass }}) {
+  props.{{ entityName }}.{{ relation.fieldName }}Id = {{ relation.fieldName }}.getId();
+}
+
+{% endfor %}
+
+</script>

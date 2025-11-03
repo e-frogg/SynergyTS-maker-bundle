@@ -16,6 +16,11 @@ class CrudFormGenerator extends AbstractCodeGenerator
     protected bool $overwriteFiles = false;
 
     /**
+     * UI framework for generation: 'vuetify' (default) or 'primevue'.
+     */
+    private string $uiFramework = 'vuetify';
+
+    /**
      * @var array<string,array<string,mixed>>
      */
     private array $predefinedAttributes = [
@@ -32,12 +37,39 @@ class CrudFormGenerator extends AbstractCodeGenerator
         $this->overwriteFiles = $overwriteFiles;
     }
 
+    public function setUiFramework(string $ui): void
+    {
+        $ui = strtolower($ui);
+        if (!in_array($ui, ['vuetify', 'primevue'], true)) {
+            throw new \InvalidArgumentException('Invalid UI framework: '.$ui);
+        }
+        $this->uiFramework = $ui;
+    }
+
+    private ?string $primeOutputDir = null;
+
+    public function setPrimeOutputDir(?string $dir): void
+    {
+        $this->primeOutputDir = $dir;
+    }
+
     public function generate(string $className): void
     {
-        $this->checkDirectory();
+        // Select target directory based on UI framework
+        $targetDir = ('primevue' === $this->uiFramework && isset($this->primeOutputDir) && $this->primeOutputDir)
+            ? $this->primeOutputDir
+            : $this->outputDir;
+
+        // Ensure directory exists
+        if (!is_dir($targetDir)) {
+            if (!mkdir($concurrentDirectory = $targetDir, 0o777, true) && !is_dir($concurrentDirectory)) {
+                throw new \RuntimeException(sprintf('Directory "%s" was not created', $concurrentDirectory));
+            }
+        }
+
         $shortClassName = $this->entityHelper->findEntityName($className)
             ?? throw new \RuntimeException('failed to find entity name');
-        $fileName = $this->outputDir.'/'.$this->getEditFormFileName($shortClassName).'.vue';
+        $fileName = rtrim($targetDir, '/').'/'.$this->getEditFormFileName($shortClassName).'.vue';
         if (file_exists($fileName)) {
             $this->logger->warning('File already exists: '.$fileName);
             if (!$this->overwriteFiles) {
@@ -46,7 +78,11 @@ class CrudFormGenerator extends AbstractCodeGenerator
             }
         }
 
-        $content = $this->twig->render('@SynergyMaker/typescript/crud-form.vue.twig', $this->generateDataForTemplate($className));
+        $template = 'primevue' === $this->uiFramework
+            ? '@SynergyMaker/typescript/crud-form.prime.vue.twig'
+            : '@SynergyMaker/typescript/crud-form.vue.twig';
+
+        $content = $this->twig->render($template, $this->generateDataForTemplate($className));
 
         file_put_contents($fileName, $content);
     }
