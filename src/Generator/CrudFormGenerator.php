@@ -115,7 +115,7 @@ class CrudFormGenerator extends AbstractCodeGenerator
                 $reflectionProperty = null;
             }
 
-            dump($fieldName);
+            //            dump($fieldName);
             $type = $this->propertyTypeExtractor->getType($className, $fieldName);
             if (null === $type || $type instanceof CollectionType) {
                 continue;
