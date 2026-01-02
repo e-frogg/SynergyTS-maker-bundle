@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Efrogg\SynergyMaker\Generator;
 
 use Efrogg\Synergy\Entity\SynergyEntityInterface;
+use Efrogg\Synergy\Helper\TypeHelper;
 use Efrogg\SynergyMaker\Event\EntityClassGeneratedEvent;
 use Efrogg\SynergyMaker\Exception\PatternNotFoundException;
 use Symfony\Component\TypeInfo\Type\BuiltinType;
@@ -122,6 +123,8 @@ class EntityClassGenerator extends AbstractCodeGenerator
                 $this->logger->error('no type for : '.$attributeName);
                 continue;
             }
+            // to handle nullable
+            $type = TypeHelper::getInnerType($type);
 
             if ($type instanceof ObjectType && is_a($type->getClassName(), SynergyEntityInterface::class, true)) {
                 $typeScriptRelation = $this->entityHelper->findEntityName($type->getClassName()) ?? throw new \Exception('no entity found for '.$type->getClassName());
@@ -129,7 +132,7 @@ class EntityClassGenerator extends AbstractCodeGenerator
                 $this->addPropertyWithGetterSetter($attributeName.'Id', 'string', self::GETTER_TYPE_RELATION_ID, true, ['relationName' => $attributeName]); // TODO : type int | string selon le cas !
                 $this->addPropertyWithGetterSetter($attributeName, $typeScriptRelation, self::GETTER_TYPE_RELATION);
             } elseif ($type instanceof CollectionType) {
-                $this->logger->warning('skip Collection : '.$attributeName);
+                $this->logger->notice('skip Collection : '.$attributeName);
             } else {
                 try {
                     $typeClassName = $type instanceof ObjectType ? $type->getClassName() : null;
@@ -137,7 +140,7 @@ class EntityClassGenerator extends AbstractCodeGenerator
                     $this->addProperty($attributeName, $this->convertType($builtInType, $typeClassName), $type->isNullable());
                 } catch (\Exception $e) {
                     //                        dump($e);
-                    $this->logger->warning($attributeName.' : '.$e->getMessage());
+                    $this->logger->error($attributeName.' : <fg=yellow>'.$e->getMessage().'</>');
                 }
             }
         }
