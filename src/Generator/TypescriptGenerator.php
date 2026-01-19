@@ -5,14 +5,12 @@ declare(strict_types=1);
 namespace Efrogg\SynergyMaker\Generator;
 
 use Efrogg\Synergy\Entity\SynergyEntityInterface;
-use ReflectionException;
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
 use Twig\Error\SyntaxError;
 
 class TypescriptGenerator
 {
-
     private bool $generateEntity = true;
 
     private bool $addRepository = true;
@@ -41,11 +39,10 @@ class TypescriptGenerator
         $this->generateCrudForm = $generateCrudForm;
     }
 
-
     /**
      * @param class-string<SynergyEntityInterface> $className
      *
-     * @throws ReflectionException
+     * @throws \ReflectionException
      * @throws LoaderError
      * @throws RuntimeError
      * @throws SyntaxError

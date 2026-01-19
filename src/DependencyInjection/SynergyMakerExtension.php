@@ -12,8 +12,7 @@ use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
 
 class SynergyMakerExtension extends Extension
 {
-
-    const array GENERATORS = [
+    public const array GENERATORS = [
         CrudFormGenerator::class,
         EntityClassGenerator::class,
         RepositoryGenerator::class,
